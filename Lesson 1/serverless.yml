@@ -1,0 +1,10 @@
+service: serverless-chatbot
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  profile: serverless-chatbot
+
+functions:
+  hello:
+    handler: handler.hello

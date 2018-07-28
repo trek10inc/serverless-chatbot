@@ -1,0 +1,91 @@
+service: serverless-chatbot
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  profile: serverless-chatbot
+  stage: dev
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - rekognition:DetectFaces
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+      Resource: arn:aws:s3:::${self:custom.uploadBucket}/*
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+      Resource: arn:aws:s3:::${self:custom.transformBucket}/*
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+      Resource:
+        - arn:aws:dynamodb:*:*:table/${self:service}-${self:provider.stage}-teams
+custom:
+  uploadBucket: ${self:service}-${self:provider.stage}-uploads-your-initials-here
+  transformBucket: ${self:service}-${self:provider.stage}-transformed-your-initials-here
+functions:
+  install:
+    handler: install.endpoint
+    events:
+      - http:
+          path: install
+          method: get
+    environment:
+      CLIENT_ID: 'CLIENT ID'
+      CLIENT_SECRET: 'CLIENT SECRET'
+      SLACK_OAUTH: 'https://slack.com/api/oauth.access?'
+      TABLE_NAME: ${self:service}-${self:provider.stage}-teams
+  hello:
+    handler: handler.endpoint
+    events:
+      - http:
+          path: echo
+          method: post
+    environment:
+      POST_MESSAGE_URL: 'https://slack.com/api/chat.postMessage?'
+      UPLOAD_BUCKET: ${self:custom.uploadBucket}
+      SLACK_HOSTNAME: 'files.slack.com'
+      TEMP_FOLDER: '/tmp/'
+      TEAMS_TABLE: ${self:service}-${self:provider.stage}-teams
+  faceswap:
+    handler: faceswap.execute
+    environment:
+      TEMP_FOLDER: '/tmp/'
+      OUTPUT_PREFIX: 'output-'
+      UPLOAD_BUCKET: ${self:custom.uploadBucket}
+      TRANSFORM_BUCKET: ${self:custom.transformBucket}
+    events:
+      - s3:
+          bucket: ${self:custom.uploadBucket}
+          event: s3:ObjectCreated:*
+  slackupdate:
+    handler: slackupdate.execute
+    environment:
+      POST_MESSAGE_URL: 'https://slack.com/api/chat.postMessage?'
+      BOT_ACCESS_TOKEN: 'xoxb-1234567890121-AaaAAaa123'
+      CHANNEL_ID: 'CHANNEL ID YOU JUST COPIED'
+    events:
+      - s3:
+          bucket: ${self:custom.transformBucket}
+          event: s3:ObjectCreated:*
+resources:
+  Resources:
+    TeamsDynamoDbTable:
+      Type: AWS::DynamoDB::Table
+      Properties: 
+        TableName: ${self:service}-${self:provider.stage}-teams
+        AttributeDefinitions: 
+          - AttributeName: team_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: team_id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1

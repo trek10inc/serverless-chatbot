@@ -1,0 +1,35 @@
+service: serverless-chatbot
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  profile: serverless-chatbot
+  stage: dev
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - s3:GetObject
+        - s3:PutObject
+      Resource: arn:aws:s3:::${self:custom.uploadBucket}/*
+custom:
+  uploadBucket: ${self:service}-${self:provider.stage}-uploads-your-initials-here
+functions:
+  hello:
+    handler: handler.endpoint
+    events:
+      - http:
+          path: echo
+          method: post
+    environment:
+      POST_MESSAGE_URL: 'https://slack.com/api/chat.postMessage?'
+      BOT_ACCESS_TOKEN: 'xoxb-1234567890121-AaaAAaa123'
+      VERIFICATION_TOKEN: 'verification token'
+      UPLOAD_BUCKET: ${self:custom.uploadBucket}
+      SLACK_HOSTNAME: 'files.slack.com'
+      TEMP_FOLDER: '/tmp/'
+  faceswap:
+    handler: faceswap.execute
+    events:
+      - s3:
+          bucket: ${self:custom.uploadBucket}
+          event: s3:ObjectCreated:*
