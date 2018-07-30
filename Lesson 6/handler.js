@@ -100,8 +100,8 @@ module.exports.endpoint = (event, context, callback) => {
          request.event.subtype && request.event.subtype === 'file_share') {
     console.log('Processing uploaded file')
 
-    const path = request.event.file.url_private_download
-    const filename = request.event.file.name
+    const path = request.event.files[0].url_private_download
+    const filename = request.event.files[0].name
     const channel = request.event.channel
     let accessToken = ''
 
